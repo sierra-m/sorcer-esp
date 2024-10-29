@@ -1,7 +1,8 @@
 #include <FastLED.h>
 
 #include "Actuator.h"
-#include "Servo.h"
+#include "ServoDS3218.h"
+#include "MicroServoSG90.h"
 
 #define LEFT_SERVO_CHANNEL 0
 #define LEFT_SERVO_PIN GPIO_NUM_44
@@ -10,6 +11,7 @@
 
 #define JAW_SERVO_PIN GPIO_NUM_6
 #define JAW_SERVO_CHANNEL 2
+#define JAW_SERVO_INVERTED 0
 
 
 #define LED_DATA_PIN GPIO_NUM_3
@@ -27,10 +29,12 @@
 #define MAX_CMD_SIZE 20
 #define CMD_TIMEOUT_US 500
 
-Actuator leftActuator(LEFT_SERVO_PIN, LEFT_SERVO_CHANNEL, CLOCKWISE); // move clockwise to extend arm up
-Actuator rightActuator(RIGHT_SERVO_PIN, RIGHT_SERVO_CHANNEL, COUNTER_CLOCKWISE); // move counter-clockwise to extend arm up
+ServoDS3218 leftArmServo(LEFT_SERVO_PIN, LEFT_SERVO_CHANNEL); // move clockwise to extend arm up
+ServoDS3218 rightArmServo(RIGHT_SERVO_PIN, RIGHT_SERVO_CHANNEL); // move counter-clockwise to extend arm up
 
-Servo jawServo(JAW_SERVO_PIN, JAW_SERVO_CHANNEL, 0);
+Actuator actuator(&leftArmServo, &rightArmServo);
+
+MicroServoSG90 jawServo(JAW_SERVO_PIN, JAW_SERVO_CHANNEL);
 
 CRGB leds[LED_NUM];
 

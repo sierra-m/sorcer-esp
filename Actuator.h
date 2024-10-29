@@ -1,14 +1,7 @@
 #ifndef ACTUATOR_H
 #define ACTUATOR_H
 
-#include <ctype.h>
-#include "Arduino.h"
-
-#define MAX_BIT_NUM 14
-
-#define PULSE_WIDTH_MAX 2150
-#define PULSE_WIDTH_MID 1250
-#define PULSE_WIDTH_MIN 350
+#include "ServoDS3218.h"
 
 typedef enum {
   CLOCKWISE,
@@ -17,24 +10,28 @@ typedef enum {
 
 class Actuator {
   public:
-    uint8_t pin;
-    uint8_t channel;
+    // Servo pointers
+    ServoDS3218 *leftServo;
+    ServoDS3218 *rightServo;
 
-    int startPos;
-    int endPos;
-
-    int currentPos;
-
-    ExtendDirection direction;
-    //void (*writeChannel)(uint8_t, uint32_t);
-
-    Actuator (uint8_t pin, uint8_t channel, ExtendDirection direction = CLOCKWISE);
-    // Set the pulse width directly
-    void setPulseWidth (int width);
-    // Set a position between 0 and 1000
-    void setPos (int pos);
-    void retract (int pos = -1);
-    void extend (int pos = -1);
+    Actuator (ServoDS3218 *leftServo, ServoDS3218 *rightServo, ExtendDirection leftServoDir = CLOCKWISE);
+    // Fully retract arms
+    void retract (uint8_t blocking = 0);
+    // Fully extend arms
+    void extend (uint8_t blocking = 0);
+    // Move to gimbal unloading position
+    void unload (uint8_t blocking = 0);
+    // Extend arms to halfway position
+    void extendHalf (uint8_t blocking = 0);
+    // Tilt gimbal to the right, where amount defines total tilt on range [0, 1000]
+    void tiltRight (int amount = 1000, uint8_t blocking = 0);
+    // Tilt gimbal to the left, where amount defines total tilt on range [0, 1000]
+    void tiltLeft (int amount = 1000, uint8_t blocking = 0);
+    // Bounce the gimbal up and down
+    void bounce (uint8_t blocking = 0);
+  protected:
+    // Calculate and wait max delay. Used for blocking calls with both servos moving
+    void waitMaxDelay (int leftNewPos, int rightNewPos);
 };
 
 #endif

@@ -1,56 +1,36 @@
 #include "Actuator.h"
 
-Actuator::Actuator (uint8_t pin, uint8_t channel, ExtendDirection direction) {
-  //writeChannel = func;
-  this->pin = pin;
-  this->channel = channel;
-  this->direction = direction;
+Actuator::Actuator (ServoDS3218 *leftServo, ServoDS3218 *rightServo, ExtendDirection leftServoDir = CLOCKWISE) {
+  this->leftServo = leftServo;
+  this->rightServo = rightServo;
 
-  // Determine polarity, high to low indicates clockwise
-  if (direction == CLOCKWISE) {
-    this->startPos = PULSE_WIDTH_MAX;
-    this->endPos = PULSE_WIDTH_MIN;
+  // Servos should both be initialized to noninverted configuration, ensure one is inverted
+  // such that a positive position change is associated with actuator extension
+  if (leftServoDir == CLOCKWISE) {
+    this->rightServo->invert();
   } else {
-    this->startPos = PULSE_WIDTH_MIN;
-    this->endPos = PULSE_WIDTH_MAX;
-  }
-
-  ledcSetup(channel, 50, MAX_BIT_NUM);
-  ledcAttachPin(pin, channel);
-}
-
-void Actuator::setPulseWidth (int width) {
-  ledcWrite(channel, width);
-}
-
-void Actuator::setPos (int pos) {
-  currentPos = pos;
-  int pulseWidth = map(pos, 0, 1000, startPos, endPos);
-  setPulseWidth(pulseWidth);
-}
-
-void Actuator::retract (int pos) {
-  if (pos > 0) {
-    int newPos = currentPos - pos;
-    if (newPos < 0) {
-      newPos = 0;
-    }
-    setPos(newPos);
-  } else {
-    currentPos = 0;
-    setPulseWidth(startPos);
+    this->leftServo->invert();
   }
 }
 
-void Actuator::extend (int pos) {
-  if (pos > 0) {
-    int newPos = currentPos + pos;
-    if (newPos > 1000) {
-      newPos = 1000;
-    }
-    setPos(newPos);
-  } else {
-    currentPos = 1000;
-    setPulseWidth(endPos);
+void Actuator::retract (uint8_t blocking) {
+  leftServo->moveStart();
+  rightServo->moveStart();
+  if (blocking) {
+    waitMaxDelay(0, 0);
   }
+}
+
+void Actuator::extend (uint8_t blocking) {
+  leftServo->moveEnd();
+  rightServo->moveEnd();
+  if (blocking) {
+    waitMaxDelay(1000, 1000);
+  }
+}
+
+void Actuator::waitMaxDelay (int leftNewPos, int rightNewPos) {
+  int leftDelay = leftServo->calcDelay(leftNewPos);
+  int rightDelay = rightServo->calcDelay(rightNewPos);
+  delay(max(leftDelay, rightDelay));
 }
