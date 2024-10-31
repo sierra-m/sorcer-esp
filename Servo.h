@@ -1,7 +1,7 @@
 #ifndef SERVO_H
 #define SERVO_H
 
-#include <ctype.h>
+#include <stdint.h>
 #include "Arduino.h"
 
 // Bit resolution for PWM duty cycle
@@ -35,6 +35,8 @@ class Servo {
     void invert ();
     // Calculate movement delay
     int calcDelay (int newPos);
+    // Get current pos
+    int getPos ();
   protected:
     // Current position on range [0, 1000]
     int currentPos;

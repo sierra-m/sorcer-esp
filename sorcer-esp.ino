@@ -1,6 +1,7 @@
 #include <FastLED.h>
 
 #include "Actuator.h"
+#include "Jaw.h"
 #include "ServoDS3218.h"
 #include "MicroServoSG90.h"
 
@@ -14,17 +15,15 @@
 #define JAW_SERVO_INVERTED 0
 
 
+#define EYE_LED_COUNT 21
+
 #define LED_DATA_PIN GPIO_NUM_3
-#define LED_TYPE    WS2812B
+#define LED_TYPE WS2812B
 #define LED_COLOR_ORDER GRB
-#define LED_NUM         19
+
+// Number of LEDs is defined by the total of both eyes and the mouth (TBA)
+#define LED_NUM EYE_LED_COUNT * 2
 #define LED_BRIGHTNESS  10
-
-#define LED_MAP_EYE1_INNER_START 12
-#define LED_MAP_EYE1_INNER_WID 7
-#define LED_MAP_EYE1_OUTER_START 0
-#define LED_MAP_EYE1_OUTER_WID 12
-
 
 #define MAX_CMD_SIZE 20
 #define CMD_TIMEOUT_US 500
@@ -36,57 +35,11 @@ Actuator actuator(&leftArmServo, &rightArmServo);
 
 MicroServoSG90 jawServo(JAW_SERVO_PIN, JAW_SERVO_CHANNEL);
 
+Jaw jaw(&jawServo);
+
 CRGB leds[LED_NUM];
 
-char receivedChars[8];
-
-// full extend unloads the assembly
-void unload () {
-  leftActuator.extend();
-  rightActuator.extend();
-}
-
-void retract () {
-  leftActuator.retract();
-  rightActuator.retract();
-}
-
-void extend () {
-  leftActuator.setPos(950);
-  rightActuator.setPos(950);
-}
-
-void extendHalf () {
-  leftActuator.setPos(500);
-  rightActuator.setPos(500);
-}
-
-void tiltRight () {
-  leftActuator.setPos(950);
-  rightActuator.retract();
-}
-
-void tiltLeft () {
-  leftActuator.retract();
-  rightActuator.setPos(950);
-}
-
-void bounce () {
-  leftActuator.extend(100);
-  rightActuator.extend(100);
-  delay(150);
-  leftActuator.retract(100);
-  rightActuator.retract(100);
-  delay(150);
-}
-
-void openMouth () {
-  jawServo.setPos(400);
-}
-
-void closeMouth () {
-  jawServo.setPos(600);
-}
+char receivedChars[MAX_CMD_SIZE];
 
 void setLedSpan (int from, int width, CRGB color) {
   for (int i = from; i < from + width; i++) {
@@ -114,18 +67,6 @@ void setEyesRed () {
 
 void setEyes (int color) {
   fill_solid(leds, LED_NUM, CRGB((uint32_t)color));
-}
-
-void shake (int count = 1) {
-  for (int i = 0; i < count; i++) {
-    leftActuator.setPos(600);
-    rightActuator.setPos(400);
-    delay(200);
-    leftActuator.setPos(400);
-    rightActuator.setPos(600);
-    delay(200);
-  }
-  extendHalf();
 }
 
 uint8_t waitSerial () {
@@ -157,28 +98,30 @@ void handleMessage (char * buffer) {
   int arg1;
   // Head motion commands
   if (strcmp(buffer, "UP") == 0) {
-    extend();
+    actuator.extend();
   } else if (strcmp(buffer, "DOWN") == 0) {
-    retract();
+    actuator.retract();
   } else if (strcmp(buffer, "MID") == 0) {
-    extendHalf();
+    actuator.extendHalf();
   } else if (strcmp(buffer, "UNLOAD") == 0) {
-    unload();
+    actuator.unload(1);
   } else if (strcmp(buffer, "TILTL") == 0) {
-    tiltLeft();
+    actuator.tiltLeft();
   } else if (strcmp(buffer, "TILTR") == 0) {
-    tiltRight();
+    actuator.tiltRight();
   } else if (strcmp(buffer, "BOUNCE") == 0) {
-    bounce();
+    actuator.bounce(1);
   } else if (strcmp(buffer, "SHAKE") == 0) {
-    shake(2);
+    actuator.shake(2);
+  }
   // Jaw motion commands
-  } else if (strcmp(buffer, "OPEN") == 0) {
-    openMouth();
+  else if (strcmp(buffer, "OPEN") == 0) {
+    jaw.open();
   } else if (strcmp(buffer, "CLOSE") == 0) {
-    closeMouth();
+    jaw.close();
+  }
   // Eye commands
-  } else if (strcmp(buffer, "GREEN") == 0) {
+  else if (strcmp(buffer, "GREEN") == 0) {
     setEyesGreen();
   } else if (strcmp(buffer, "RED") == 0) {
     setEyesRed();
@@ -206,8 +149,8 @@ void setup() {
   FastLED.setBrightness(LED_BRIGHTNESS);
 
   resetEyes();
-  extendHalf();
-  closeMouth();
+  actuator.reset();
+  jaw.close(1);
 
   Serial.begin(115200);
   Serial.println("Ready! (=^-^=)");
@@ -216,9 +159,9 @@ void setup() {
 void loop() {
   if (Serial.available()) {
     if (receiveMessage(receivedChars)) {
+      handleMessage(receivedChars);
       Serial.print("ACK: ");
       Serial.println(receivedChars);
-      handleMessage(receivedChars);
     }
   }
   FastLED.show();

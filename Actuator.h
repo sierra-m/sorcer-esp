@@ -1,6 +1,8 @@
 #ifndef ACTUATOR_H
 #define ACTUATOR_H
 
+#include <stdint.h>
+#include "Arduino.h"
 #include "ServoDS3218.h"
 
 typedef enum {
@@ -8,6 +10,8 @@ typedef enum {
   COUNTER_CLOCKWISE
 } ExtendDirection;
 
+// Defines movement control commands for a 2-axis linear actuator gimbal
+// moving an animatronic head
 class Actuator {
   public:
     // Servo pointers
@@ -15,9 +19,13 @@ class Actuator {
     ServoDS3218 *rightServo;
 
     Actuator (ServoDS3218 *leftServo, ServoDS3218 *rightServo, ExtendDirection leftServoDir = CLOCKWISE);
+    // Handles movement of both servos
+    void moveBoth (int leftNewPos, int rightNewPos, uint8_t blocking = 0);
+    // Move arms to initial state (middle)
+    void reset ();
     // Fully retract arms
     void retract (uint8_t blocking = 0);
-    // Fully extend arms
+    // Fully extend arms (does not extend to unloading position)
     void extend (uint8_t blocking = 0);
     // Move to gimbal unloading position
     void unload (uint8_t blocking = 0);
@@ -29,6 +37,8 @@ class Actuator {
     void tiltLeft (int amount = 1000, uint8_t blocking = 0);
     // Bounce the gimbal up and down
     void bounce (uint8_t blocking = 0);
+    // Shake the gimbal slightly back and forth
+    void shake (int count = 1);
   protected:
     // Calculate and wait max delay. Used for blocking calls with both servos moving
     void waitMaxDelay (int leftNewPos, int rightNewPos);

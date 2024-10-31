@@ -25,6 +25,11 @@ void Servo::setPulseWidth (int width) {
 }
 
 void Servo::setPos (int pos, uint8_t blocking) {
+  // No movement needed for equal position
+  if (pos == currentPos) {
+    return;
+  }
+  // Map position to pulse width
   int pulseWidth = map(pos, 0, 1000, startPulseWidth, endPulseWidth);
   setPulseWidth(pulseWidth);
   if (blocking) {
@@ -58,6 +63,10 @@ void Servo::invert () {
 int Servo::calcDelay (int newPos) {
   int delta = abs(newPos - currentPos);
   return (fullMoveDelay * delta) / 1000;
+}
+
+int Servo::getPos () {
+  return currentPos;
 }
 
 void Servo::waitMovement (int newPos) {
