@@ -1,12 +1,13 @@
 #include <FastLED.h>
 
-#include "Actuator.h"
-#include "Jaw.h"
-#include "ServoDS3218.h"
-#include "MicroServoSG90.h"
+#include "src/ServoDS3218.h"
+#include "src/MicroServoSG90.h"
 
-#include "Eye.h"
-#include "Eyes.h"
+#include "src/Actuator.h"
+#include "src/Jaw.h"
+
+#include "src/Eye.h"
+#include "src/Eyes.h"
 
 #define LEFT_SERVO_CHANNEL 0
 #define LEFT_SERVO_PIN GPIO_NUM_44
