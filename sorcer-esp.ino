@@ -5,6 +5,9 @@
 #include "ServoDS3218.h"
 #include "MicroServoSG90.h"
 
+#include "Eye.h"
+#include "Eyes.h"
+
 #define LEFT_SERVO_CHANNEL 0
 #define LEFT_SERVO_PIN GPIO_NUM_44
 #define RIGHT_SERVO_CHANNEL 1
@@ -13,9 +16,6 @@
 #define JAW_SERVO_PIN GPIO_NUM_6
 #define JAW_SERVO_CHANNEL 2
 #define JAW_SERVO_INVERTED 0
-
-
-#define EYE_LED_COUNT 21
 
 #define LED_DATA_PIN GPIO_NUM_3
 #define LED_TYPE WS2812B
@@ -39,35 +39,12 @@ Jaw jaw(&jawServo);
 
 CRGB leds[LED_NUM];
 
+Eye leftEye(leds, 0, CRGB::Green);
+Eye rightEye(leds, EYE_LED_COUNT, CRGB::Green);
+
+Eyes eyes(&leftEye, &rightEye);
+
 char receivedChars[MAX_CMD_SIZE];
-
-void setLedSpan (int from, int width, CRGB color) {
-  for (int i = from; i < from + width; i++) {
-    leds[i] = color;
-  }
-}
-
-void resetEyes () {
-  fill_solid(leds, LED_NUM, CRGB(0));
-  setLedSpan(LED_MAP_EYE1_INNER_START, LED_MAP_EYE1_INNER_WID, CRGB(0x00ff00));
-}
-
-void dilate () {
-  setLedSpan(LED_MAP_EYE1_OUTER_START, LED_MAP_EYE1_OUTER_WID, CRGB(0x00ff00));
-  setLedSpan(LED_MAP_EYE1_INNER_START, LED_MAP_EYE1_INNER_WID, CRGB(0));
-}
-
-void setEyesGreen () {
-  fill_solid(leds, LED_NUM, CRGB(0, 255, 0));
-}
-
-void setEyesRed () {
-  fill_solid(leds, LED_NUM, CRGB(255, 0, 0));
-}
-
-void setEyes (int color) {
-  fill_solid(leds, LED_NUM, CRGB((uint32_t)color));
-}
 
 uint8_t waitSerial () {
   unsigned long start = micros();
@@ -82,7 +59,7 @@ uint8_t receiveMessage (char * buffer) {
   uint8_t index = 0;
   uint8_t status = true;
   char received = Serial.read();
-  while (received != '\n') {
+  while (received != '\n' && index < (MAX_CMD_SIZE - 1)) {
     buffer[index++] = received;
     if (!waitSerial()) {
       status = false;
@@ -121,23 +98,41 @@ void handleMessage (char * buffer) {
     jaw.close();
   }
   // Eye commands
-  else if (strcmp(buffer, "GREEN") == 0) {
-    setEyesGreen();
-  } else if (strcmp(buffer, "RED") == 0) {
-    setEyesRed();
+  else if (strcmp(buffer, "HAPPY") == 0) {
+    eyes.happy();
+  } else if (strcmp(buffer, "ANGRY") == 0) {
+    eyes.angry();
+  } else if (strcmp(buffer, "CAUTION") == 0) {
+    eyes.caution();
   } else if (sscanf(buffer, "EYES#%6x", &arg1) == 1) {
-    setEyes(arg1);
+    arg1 = constrain(arg1, 0, 0xffffff);
+    eyes.setColor(CRGB(arg1));
   } else if (sscanf(buffer, "BRIGHT%d", &arg1) == 1) {
+    arg1 = constrain(arg1, 0, 255);
     FastLED.setBrightness(arg1);
-  } else if (sscanf(buffer, "JAW%d", &arg1) == 1) {
-    jawServo.setPulseWidth(arg1);
-    Serial.print("Set jaw to width ");
-    Serial.println(arg1);
   } else if (strcmp(buffer, "RSTEYES") == 0) {
-    resetEyes();
+    eyes.reset();
   } else if (strcmp(buffer, "DILATE") == 0) {
-    dilate();
+    leftEye.dilate();
+    rightEye.dilate();
+  } else if (strcmp(buffer, "CONTRACT") == 0) {
+    leftEye.contract();
+    rightEye.contract();
+  } else if (strcmp(buffer, "BLINK") == 0) {
+    eyes.blink();
+  } else if (strcmp(buffer, "WINKL") == 0) {
+    leftEye.blink();
+  } else if (strcmp(buffer, "WINKR") == 0) {
+    rightEye.blink();
+  } else if (strcmp(buffer, "SQUINT") == 0) {
+    eyes.squint();
+  } else if (strcmp(buffer, "SQUINTL") == 0) {
+    leftEye.squint();
+  } else if (strcmp(buffer, "SQUINTR") == 0) {
+    rightEye.squint();
   }
+  // Update LEDs if not done already
+  FastLED.show();
 }
 
 void setup() {
@@ -145,10 +140,10 @@ void setup() {
     .setCorrection(TypicalLEDStrip)
     .setDither(LED_BRIGHTNESS < 255);
 
-  // set master brightness control
+  // Set master brightness control
   FastLED.setBrightness(LED_BRIGHTNESS);
 
-  resetEyes();
+  eyes.reset();
   actuator.reset();
   jaw.close(1);
 
@@ -164,5 +159,4 @@ void loop() {
       Serial.println(receivedChars);
     }
   }
-  FastLED.show();
 }
