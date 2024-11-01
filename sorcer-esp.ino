@@ -107,11 +107,21 @@ void handleMessage (char * buffer) {
   } else if (sscanf(buffer, "EYES#%6x", &arg1) == 1) {
     arg1 = constrain(arg1, 0, 0xffffff);
     eyes.setColor(CRGB(arg1));
+  } else if (sscanf(buffer, "EYEL#%6x", &arg1) == 1) {
+    arg1 = constrain(arg1, 0, 0xffffff);
+    leftEye.setColor(CRGB(arg1));
+  } else if (sscanf(buffer, "EYER#%6x", &arg1) == 1) {
+    arg1 = constrain(arg1, 0, 0xffffff);
+    rightEye.setColor(CRGB(arg1));
   } else if (sscanf(buffer, "BRIGHT%d", &arg1) == 1) {
     arg1 = constrain(arg1, 0, 255);
     FastLED.setBrightness(arg1);
   } else if (strcmp(buffer, "RSTEYES") == 0) {
     eyes.reset();
+  } else if (strcmp(buffer, "OPENEYES") == 0) {
+    eyes.open();
+  } else if (strcmp(buffer, "CLOSEEYES") == 0) {
+    eyes.close();
   } else if (strcmp(buffer, "DILATE") == 0) {
     leftEye.dilate();
     rightEye.dilate();

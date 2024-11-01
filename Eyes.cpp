@@ -30,6 +30,11 @@ void Eyes::blink () {
   rightEye->blinkStep0(BLINK_OPENING);
 }
 
+void Eyes::open () {
+  leftEye->open();
+  rightEye->open();
+}
+
 void Eyes::close () {
   leftEye->close();
   rightEye->close();

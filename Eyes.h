@@ -16,6 +16,8 @@ class Eyes {
     void reset ();
     // Blink both eyes
     void blink ();
+    // Open both eyes
+    void open ();
     // Close both eyes
     void close ();
     // Squint both eyes
