@@ -3,7 +3,7 @@
 
 #define EYES_LED_COUNT (EYE_LED_COUNT * 2)
 
-#define EYES_SPIRAL_STEP_DELAY_MS 200
+#define EYES_SPIRAL_STEP_DELAY_MS 50
 
 #include <stdint.h>
 #include "Eye.h"

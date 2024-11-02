@@ -100,9 +100,9 @@ void Eye::open () {
 void Eye::close () {
   writeRing(RING_OUTER, 0);
   writeRing(RING_INNER, 0);
-  int drawSize = ((pupilSize == PUPIL_REG) ? EYE_CLOSED_REG_PUPIL_SIZE : EYE_CLOSED_IDXS_SIZE);
   int startPos = ((pupilSize == PUPIL_REG) ? EYE_CLOSED_REG_PUPIL_START_IDX : 0);
-  for (int i = startPos; i < drawSize; i++) {
+  int drawSize = ((pupilSize == PUPIL_REG) ? EYE_CLOSED_REG_PUPIL_SIZE : EYE_CLOSED_IDXS_SIZE);
+  for (int i = startPos; i < drawSize + startPos; i++) {
     leds[Eye::eyeClosedIdxs[i] + start] = currentColor;
   }
 }
@@ -174,6 +174,7 @@ void Eye::blink () {
 
   blinkStep1(BLINK_CLOSING);
   FastLED.show();
+  delay(EYE_BLINK_STEP_DELAY_MS);
   delay(EYE_BLINK_STEP_DELAY_MS);
 
   blinkStep1(BLINK_OPENING);

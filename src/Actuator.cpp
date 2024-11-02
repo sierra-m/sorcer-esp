@@ -14,10 +14,16 @@ Actuator::Actuator (ServoDS3218 *leftServo, ServoDS3218 *rightServo, ExtendDirec
 }
 
 void Actuator::moveBoth (int leftNewPos, int rightNewPos, uint8_t blocking) {
+  int maxDelay;
+  if (blocking) {
+    maxDelay = calcMaxDelay(leftNewPos, rightNewPos);
+  }
   leftServo->setPos(leftNewPos);
   rightServo->setPos(rightNewPos);
+  // Double blocking check due to need to calc delay before setting pos, but
+  // only if blocking
   if (blocking) {
-    waitMaxDelay(leftNewPos, rightNewPos);
+    delay(maxDelay);
   }
 }
 
@@ -27,11 +33,7 @@ void Actuator::reset () {
 }
 
 void Actuator::retract (uint8_t blocking) {
-  leftServo->moveStart();
-  rightServo->moveStart();
-  if (blocking) {
-    waitMaxDelay(0, 0);
-  }
+  moveBoth(0, 0, blocking);
 }
 
 void Actuator::extend (uint8_t blocking) {
@@ -39,11 +41,7 @@ void Actuator::extend (uint8_t blocking) {
 }
 
 void Actuator::unload (uint8_t blocking) {
-  leftServo->moveEnd();
-  rightServo->moveEnd();
-  if (blocking) {
-    waitMaxDelay(1000, 1000);
-  }
+  moveBoth(1000, 1000, blocking);
 }
 
 void Actuator::extendHalf (uint8_t blocking) {
@@ -80,8 +78,8 @@ void Actuator::shake (int count) {
   reset();
 }
 
-void Actuator::waitMaxDelay (int leftNewPos, int rightNewPos) {
+int Actuator::calcMaxDelay (int leftNewPos, int rightNewPos) {
   int leftDelay = leftServo->calcDelay(leftNewPos);
   int rightDelay = rightServo->calcDelay(rightNewPos);
-  delay(max(leftDelay, rightDelay));
+  return max(leftDelay, rightDelay);
 }

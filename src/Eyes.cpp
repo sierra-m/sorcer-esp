@@ -22,6 +22,7 @@ void Eyes::blink () {
   rightEye->blinkStep1(BLINK_CLOSING);
   FastLED.show();
   delay(EYE_BLINK_STEP_DELAY_MS);
+  delay(EYE_BLINK_STEP_DELAY_MS);
 
   leftEye->blinkStep1(BLINK_OPENING);
   rightEye->blinkStep1(BLINK_OPENING);
@@ -114,9 +115,6 @@ void Eyes::spiralLine () {
   fill_solid(ledSpan, EYES_LED_COUNT, 0);
   for (int i = 0; i < EYES_LED_COUNT; i++) {
     ledSpan[i] = leftEye->currentColor;
-    if (i > 0) {
-      ledSpan[i - 1] = 0;
-    }
     FastLED.show();
     delay(EYES_SPIRAL_STEP_DELAY_MS);
   }

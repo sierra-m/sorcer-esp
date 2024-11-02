@@ -142,6 +142,7 @@ void handleEyeColorCmd (char * command) {
   } else {
     // No match for variable setting - try named colors
     char subcmd[3];
+    color = 0;
     numScanned = sscanf(command, "/%3c>%c", subcmd, &side);
     if (numScanned > 0) {
       if (strncmp(subcmd, "GRN", 3) == 0) {
@@ -158,10 +159,12 @@ void handleEyeColorCmd (char * command) {
         color = 0xffaa00;
       }
     }
-    if (numScanned == 1) {
-      eyes.setColor(color);
-    } else if (numScanned == 2) {
-      setEyeColor(side, color);
+    if (color > 0) {
+      if (numScanned == 1) {
+        eyes.setColor(color);
+      } else if (numScanned == 2) {
+        setEyeColor(side, color);
+      }
     }
   }
 }
@@ -276,12 +279,19 @@ void handleEyeCmd (char * command) {
       if (command[1] != '/') {
         return;
       }
+      char side;
       if (strncmp(command + 2, "BLK", 3) == 0) {
         eyes.blink();
       } else if (strncmp(command + 2, "SPD", 3) == 0) {
         eyes.spiralDot();
       } else if (strncmp(command + 2, "SPL", 3) == 0) {
         eyes.spiralLine();
+      } else if (sscanf(command + 2, "WNK>%c", &side) == 1) {
+        if (side == 'L') {
+          leftEye.blink();
+        } else if (side == 'R') {
+          rightEye.blink();
+        }
       }
       break;
   }
@@ -321,8 +331,8 @@ void setup() {
   FastLED.setBrightness(LED_BRIGHTNESS);
 
   reset();
-  //actuator.reset();
-  //jaw.close(1);
+  actuator.reset();
+  jaw.close(1);
 
   Serial.begin(115200);
   Serial.println("Ready! (=^-^=)");

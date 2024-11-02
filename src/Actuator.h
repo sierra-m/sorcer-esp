@@ -40,8 +40,8 @@ class Actuator {
     // Shake the gimbal slightly back and forth
     void shake (int count = 1);
   protected:
-    // Calculate and wait max delay. Used for blocking calls with both servos moving
-    void waitMaxDelay (int leftNewPos, int rightNewPos);
+    // Calculate max delay. Used for blocking calls with both servos moving
+    int calcMaxDelay (int leftNewPos, int rightNewPos);
 };
 
 #endif
