@@ -3,6 +3,8 @@
 Eyes::Eyes (Eye *leftEye, Eye *rightEye) {
   this->leftEye = leftEye;
   this->rightEye = rightEye;
+  this->start = ((leftEye->start < rightEye->start) ? leftEye->start : rightEye->start);
+  this->ledSpan = leftEye->leds + start;
 }
 
 void Eyes::reset () {
@@ -40,9 +42,34 @@ void Eyes::close () {
   rightEye->close();
 }
 
+void Eyes::dilate () {
+  leftEye->dilate();
+  rightEye->dilate();
+}
+
+void Eyes::contract () {
+  leftEye->contract();
+  rightEye->contract();
+}
+
 void Eyes::squint () {
   leftEye->squint();
   rightEye->squint();
+}
+
+void Eyes::setInfill (uint8_t hasInfill) {
+  leftEye->setInfill(hasInfill);
+  rightEye->setInfill(hasInfill);
+}
+
+void Eyes::dead () {
+  leftEye->dead();
+  rightEye->dead();
+}
+
+void Eyes::rainbow () {
+  leftEye->rainbow();
+  rightEye->rainbow();
 }
 
 void Eyes::confused () {
@@ -69,3 +96,30 @@ void Eyes::setColor (CRGB newColor) {
   leftEye->setColor(newColor);
   rightEye->setColor(newColor);
 }
+
+void Eyes::spiralDot () {
+  fill_solid(ledSpan, EYES_LED_COUNT, 0);
+  for (int i = 0; i < EYES_LED_COUNT; i++) {
+    ledSpan[i] = leftEye->currentColor;
+    if (i > 0) {
+      ledSpan[i - 1] = 0;
+    }
+    FastLED.show();
+    delay(EYES_SPIRAL_STEP_DELAY_MS);
+  }
+  ledSpan[EYES_LED_COUNT - 1] = 0;
+}
+
+void Eyes::spiralLine () {
+  fill_solid(ledSpan, EYES_LED_COUNT, 0);
+  for (int i = 0; i < EYES_LED_COUNT; i++) {
+    ledSpan[i] = leftEye->currentColor;
+    if (i > 0) {
+      ledSpan[i - 1] = 0;
+    }
+    FastLED.show();
+    delay(EYES_SPIRAL_STEP_DELAY_MS);
+  }
+}
+
+

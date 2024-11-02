@@ -23,7 +23,7 @@
 #define LED_COLOR_ORDER GRB
 
 // Number of LEDs is defined by the total of both eyes and the mouth (TBA)
-#define LED_NUM EYE_LED_COUNT * 2
+#define LED_NUM EYES_LED_COUNT
 #define LED_BRIGHTNESS  10
 
 #define MAX_CMD_SIZE 20
@@ -46,6 +46,11 @@ Eye rightEye(leds, EYE_LED_COUNT, CRGB::Green);
 Eyes eyes(&leftEye, &rightEye);
 
 char receivedChars[MAX_CMD_SIZE];
+
+void reset () {
+  eyes.reset();
+  FastLED.show();
+}
 
 uint8_t waitSerial () {
   unsigned long start = micros();
@@ -72,75 +77,236 @@ uint8_t receiveMessage (char * buffer) {
   return status;
 }
 
-void handleMessage (char * buffer) {
-  int arg1;
-  // Head motion commands
-  if (strcmp(buffer, "UP") == 0) {
+void handleActuatorCmd (char * command) {
+  // Actuator commands all take the form:  A/CMD
+  int arg0;
+  if (strncmp(command, "UP", 3) == 0) {
     actuator.extend();
-  } else if (strcmp(buffer, "DOWN") == 0) {
+  } else if (strncmp(command, "DWN", 3) == 0) {
     actuator.retract();
-  } else if (strcmp(buffer, "MID") == 0) {
+  } else if (strncmp(command, "MID", 3) == 0) {
     actuator.extendHalf();
-  } else if (strcmp(buffer, "UNLOAD") == 0) {
+  } else if (strncmp(command, "UNL", 3) == 0) {
     actuator.unload(1);
-  } else if (strcmp(buffer, "TILTL") == 0) {
+  } else if (strncmp(command, "TLL", 3) == 0) {
     actuator.tiltLeft();
-  } else if (strcmp(buffer, "TILTR") == 0) {
+  } else if (strncmp(command, "TLR", 3) == 0) {
     actuator.tiltRight();
-  } else if (strcmp(buffer, "BOUNCE") == 0) {
+  } else if (strncmp(command, "BNC", 3) == 0) {
     actuator.bounce(1);
-  } else if (strcmp(buffer, "SHAKE") == 0) {
+  } else if (strncmp(command, "SHK", 6) == 0) {  // shake can have args, so expand scan size
     actuator.shake(2);
+  } else if (sscanf(command, "SHK>%d", &arg0) == 1) {
+    arg0 = constrain(arg0, 0, 20);
+    actuator.shake(arg0);
   }
-  // Jaw motion commands
-  else if (strcmp(buffer, "OPEN") == 0) {
+}
+
+void handleJawCmd (char * command) {
+  // Jaw commands all take the form:  J/CMD
+  if (strncmp(command, "OPN", 3) == 0) {
     jaw.open();
-  } else if (strcmp(buffer, "CLOSE") == 0) {
+  } else if (strncmp(command, "CLS", 3) == 0) {
     jaw.close();
   }
-  // Eye commands
-  else if (strcmp(buffer, "HAPPY") == 0) {
-    eyes.happy();
-  } else if (strcmp(buffer, "ANGRY") == 0) {
-    eyes.angry();
-  } else if (strcmp(buffer, "CAUTION") == 0) {
-    eyes.caution();
-  } else if (sscanf(buffer, "EYES#%6x", &arg1) == 1) {
-    arg1 = constrain(arg1, 0, 0xffffff);
-    eyes.setColor(CRGB(arg1));
-  } else if (sscanf(buffer, "EYEL#%6x", &arg1) == 1) {
-    arg1 = constrain(arg1, 0, 0xffffff);
-    leftEye.setColor(CRGB(arg1));
-  } else if (sscanf(buffer, "EYER#%6x", &arg1) == 1) {
-    arg1 = constrain(arg1, 0, 0xffffff);
-    rightEye.setColor(CRGB(arg1));
-  } else if (sscanf(buffer, "BRIGHT%d", &arg1) == 1) {
-    arg1 = constrain(arg1, 0, 255);
-    FastLED.setBrightness(arg1);
-  } else if (strcmp(buffer, "RSTEYES") == 0) {
-    eyes.reset();
-  } else if (strcmp(buffer, "OPENEYES") == 0) {
-    eyes.open();
-  } else if (strcmp(buffer, "CLOSEEYES") == 0) {
-    eyes.close();
-  } else if (strcmp(buffer, "DILATE") == 0) {
-    leftEye.dilate();
-    rightEye.dilate();
-  } else if (strcmp(buffer, "CONTRACT") == 0) {
-    leftEye.contract();
-    rightEye.contract();
-  } else if (strcmp(buffer, "BLINK") == 0) {
-    eyes.blink();
-  } else if (strcmp(buffer, "WINKL") == 0) {
-    leftEye.blink();
-  } else if (strcmp(buffer, "WINKR") == 0) {
-    rightEye.blink();
-  } else if (strcmp(buffer, "SQUINT") == 0) {
-    eyes.squint();
-  } else if (strcmp(buffer, "SQUINTL") == 0) {
-    leftEye.squint();
-  } else if (strcmp(buffer, "SQUINTR") == 0) {
-    rightEye.squint();
+}
+
+void setEyeColor (char side, CRGB color) {
+  switch (side) {
+    case 'L':
+      leftEye.setColor(color);
+      break;
+    case 'R':
+      rightEye.setColor(color);
+      break;
+    default:
+      eyes.setColor(color);
+  }
+}
+
+void handleEyeColorCmd (char * command) {
+  // Color setting:  E/C/CMD[>[L/R]]
+  //                 E/C>#[num][,[L/R]]
+  //                    ^
+  //           command starts here
+  int color;
+  char side;
+  // Check for variable color setting pattern
+  int numScanned = sscanf(command, ">#%6x,%c", &color, &side);
+  // Constrain color either way
+  color = constrain(color, 0, 0xffffff);
+  if (numScanned == 1) {
+    eyes.setColor(color);
+  } else if (numScanned == 2) {
+    setEyeColor(side, color);
+  } else {
+    // No match for variable setting - try named colors
+    char subcmd[3];
+    numScanned = sscanf(command, "/%3c>%c", subcmd, &side);
+    if (numScanned > 0) {
+      if (strncmp(subcmd, "GRN", 3) == 0) {
+        color = 0x00ff00;
+      } else if (strncmp(subcmd, "RED", 3) == 0) {
+        color = 0xff0000;
+      } else if (strncmp(subcmd, "BLU", 3) == 0) {
+        color = 0x0000ff;
+      } else if (strncmp(subcmd, "YLW", 3) == 0) {
+        color = 0xffff00;
+      } else if (strncmp(subcmd, "PRP", 3) == 0) {
+        color = 0xff00ff;
+      } else if (strncmp(subcmd, "ORG", 3) == 0) {
+        color = 0xffaa00;
+      }
+    }
+    if (numScanned == 1) {
+      eyes.setColor(color);
+    } else if (numScanned == 2) {
+      setEyeColor(side, color);
+    }
+  }
+}
+
+void handleEyeDrawingCmd (char * command) {
+  // Drawing:        E/D/CMD[>[arg]]
+  //                    ^
+  //           command starts here
+  char subcmd[3];
+  char arg0;
+  int numScanned = sscanf(command, "/%3c>%c", subcmd, &arg0);
+
+  if (numScanned > 0) {
+    char side = ((numScanned == 2) ? arg0 : 'B');
+    if (strncmp(subcmd, "OPN", 3) == 0) {
+      switch (side) {
+        case 'L':
+          leftEye.open();
+          break;
+        case 'R':
+          rightEye.open();
+          break;
+        default:
+          eyes.open();
+      }
+    } else if (strncmp(subcmd, "CLS", 3) == 0) {
+      switch (side) {
+        case 'L':
+          leftEye.close();
+          break;
+        case 'R':
+          rightEye.close();
+          break;
+        default:
+          eyes.close();
+      }
+    } else if (strncmp(subcmd, "DIL", 3) == 0) {
+      switch (side) {
+        case 'L':
+          leftEye.dilate();
+          break;
+        case 'R':
+          rightEye.dilate();
+          break;
+        default:
+          eyes.dilate();
+      }
+    } else if (strncmp(subcmd, "CTR", 3) == 0) {
+      switch (side) {
+        case 'L':
+          leftEye.contract();
+          break;
+        case 'R':
+          rightEye.contract();
+          break;
+        default:
+          eyes.contract();
+      }
+    } else if (strncmp(subcmd, "SQT", 3) == 0) {
+      switch (side) {
+        case 'L':
+          leftEye.squint();
+          break;
+        case 'R':
+          rightEye.squint();
+          break;
+        default:
+          eyes.squint();
+      }
+    } else if ((strncmp(subcmd, "INF", 3) == 0) && (numScanned == 2)) {
+      eyes.setInfill(arg0 == 'Y');
+    } else if (strncmp(subcmd, "DIE", 3) == 0) {
+      eyes.dead();
+    } else if (strncmp(subcmd, "RNB", 3) == 0) {
+      eyes.rainbow();
+    } else if (strncmp(subcmd, "CNF", 3) == 0) {
+      eyes.confused();
+    }
+  }
+}
+
+void handleEyeCmd (char * command) {
+  // Eye commands take the forms:
+  // Color setting:  E/C/CMD[>[L or R]]
+  //                 E/C>#[num][,[L or R]]
+  // Brightness:     E/B>[num]
+  // Reset:          E/R
+  // Drawing:        E/D/CMD[>[arg]]
+  // Animation:      E/A/CMD[>[L/R]]
+  //                   ^
+  //          command starts here
+  char * subcmd = command + 2;
+  int arg0;
+  switch (command[0]) {
+    case 'C':
+      handleEyeColorCmd(command + 1);
+      break;
+    case 'B':
+      if (sscanf(command + 1, ">%d", &arg0) == 1) {
+        arg0 = constrain(arg0, 0, 255);
+        FastLED.setBrightness(arg0);
+      }
+      break;
+    case 'R':
+      eyes.reset();
+      break;
+    case 'D':
+      handleEyeDrawingCmd(command + 1);
+      break;
+    case 'A':
+      // Check delimiter
+      if (command[1] != '/') {
+        return;
+      }
+      if (strncmp(command + 2, "BLK", 3) == 0) {
+        eyes.blink();
+      } else if (strncmp(command + 2, "SPD", 3) == 0) {
+        eyes.spiralDot();
+      } else if (strncmp(command + 2, "SPL", 3) == 0) {
+        eyes.spiralLine();
+      }
+      break;
+  }
+}
+
+void handleMessage (char * buffer) {
+  if (buffer[0] == 'R') {
+    reset();
+    return;
+  }
+  // Check first delimiter
+  if (buffer[1] != '/') {
+    return;
+  }
+  char * subcmd = buffer + 2; // Subcommand starts 2 chars in
+  switch (buffer[0]) {
+    case 'A':
+      handleActuatorCmd(subcmd);  
+      break;
+    case 'J':
+      handleJawCmd(subcmd);
+      break;
+    case 'E':
+      handleEyeCmd(subcmd);
+      break;
   }
   // Update LEDs if not done already
   FastLED.show();
@@ -154,9 +320,9 @@ void setup() {
   // Set master brightness control
   FastLED.setBrightness(LED_BRIGHTNESS);
 
-  eyes.reset();
-  actuator.reset();
-  jaw.close(1);
+  reset();
+  //actuator.reset();
+  //jaw.close(1);
 
   Serial.begin(115200);
   Serial.println("Ready! (=^-^=)");

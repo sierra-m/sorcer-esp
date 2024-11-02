@@ -62,6 +62,10 @@ void Eye::clear () {
   fill_solid(leds + start, EYE_LED_COUNT, 0);
 }
 
+void Eye::fill () {
+  fill_solid(leds + start, EYE_LED_COUNT, currentColor);
+}
+
 void Eye::writeRing (RingArea ring, CRGB newColor) {
   switch (ring) {
     case RING_DOT:

@@ -12,13 +12,13 @@
 #define EYE_OUTER_RING_START 1 + EYE_INNER_RING_COUNT
 #define EYE_INNER_RING_START 1
 #define EYE_DOT_START 0
-#define EYE_BLINK_STEP_DELAY_MS 50
-#define EYE_LED_COUNT 1 + EYE_INNER_RING_COUNT + EYE_OUTER_RING_COUNT
+#define EYE_BLINK_STEP_DELAY_MS 75
+#define EYE_LED_COUNT (1 + EYE_INNER_RING_COUNT + EYE_OUTER_RING_COUNT)
 
 // Static drawing array sizes
 #define EYE_CLOSED_IDXS_SIZE 5
 #define EYE_CLOSED_REG_PUPIL_SIZE 3
-#define EYE_CLOSED_REG_PUPIL_START_IDX 0
+#define EYE_CLOSED_REG_PUPIL_START_IDX 1
 
 #define EYE_SQUINT_EXT_IDXS_SIZE 3
 #define EYE_BLINK_STEP0_IDXS_SIZE 2
@@ -75,6 +75,8 @@ class Eye {
     // ============================
     // Clear eye
     void clear ();
+    // Fill entire eye
+    void fill ();
     // Write ring
     void writeRing (RingArea ring, CRGB newColor);
     // Open the eye (default pupil size)
