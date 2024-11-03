@@ -6,7 +6,7 @@
 #define DS3218_PULSE_WIDTH_MIN 350
 #define DS3218_PULSE_WIDTH_MAX 2150
 #define DS3218_INVERTED 0
-#define DS3218_FULL_MOVE_DELAY_MS 2000
+#define DS3218_FULL_MOVE_DELAY_MS 1800
 
 class ServoDS3218: public Servo {
   public:

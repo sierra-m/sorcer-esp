@@ -50,6 +50,8 @@ char receivedChars[MAX_CMD_SIZE];
 void reset () {
   eyes.reset();
   FastLED.show();
+  actuator.reset();
+  jaw.close(1);
 }
 
 uint8_t waitSerial () {
@@ -78,36 +80,66 @@ uint8_t receiveMessage (char * buffer) {
 }
 
 void handleActuatorCmd (char * command) {
-  // Actuator commands all take the form:  A/CMD
+  // Actuator commands take the forms:  A/CMD[>B]
+  //                                    A/CMD[>[num][,B]]
+  //                                    A/CMD[>[num]]
+  //                                      ^
+  //                            command starts here
   int arg0;
-  if (strncmp(command, "UP", 3) == 0) {
-    actuator.extend();
-  } else if (strncmp(command, "DWN", 3) == 0) {
-    actuator.retract();
-  } else if (strncmp(command, "MID", 3) == 0) {
-    actuator.extendHalf();
-  } else if (strncmp(command, "UNL", 3) == 0) {
-    actuator.unload(1);
-  } else if (strncmp(command, "TLL", 3) == 0) {
-    actuator.tiltLeft();
-  } else if (strncmp(command, "TLR", 3) == 0) {
-    actuator.tiltRight();
-  } else if (strncmp(command, "BNC", 3) == 0) {
-    actuator.bounce(1);
-  } else if (strncmp(command, "SHK", 6) == 0) {  // shake can have args, so expand scan size
-    actuator.shake(2);
-  } else if (sscanf(command, "SHK>%d", &arg0) == 1) {
-    arg0 = constrain(arg0, 0, 20);
-    actuator.shake(arg0);
+  if (strncmp(command, "TL", 2) == 0) {
+    // Handle:
+    // A/TLL[>[num][,B]]
+    // A/TLR[>[num][,B]]
+    char side, blocking;
+    int tiltAmount;
+    int numScanned = sscanf(command + 2, "%c>%d,%c", &side, &tiltAmount, &blocking);
+    if (numScanned > 0) {
+      int chosenTilt = 1000;
+      uint8_t chosenBlocking = 0;
+      if (numScanned == 2) {
+        chosenTilt = constrain(tiltAmount, 0, 1000);
+      }
+      if (numScanned == 3) {
+        chosenBlocking = (blocking == 'B');
+      }
+      if (side == 'L') {
+        actuator.tiltLeft(chosenTilt, chosenBlocking);
+      } else if (side == 'R') {
+        actuator.tiltRight(chosenTilt, chosenBlocking);
+      }
+    }
+  } else {
+    uint8_t blocking = (strncmp(command + 3, ">B", 2) == 0);
+    if (strncmp(command, "RST", 3) == 0) {
+      actuator.reset();
+    } else if (strncmp(command, "UPP", 3) == 0) {
+      actuator.extend(blocking);
+    } else if (strncmp(command, "DWN", 3) == 0) {
+      actuator.retract(blocking);
+    } else if (strncmp(command, "MID", 3) == 0) {
+      actuator.extendHalf(blocking);
+    } else if (strncmp(command, "UNL", 3) == 0) {
+      actuator.unload(1);
+    } else if (strncmp(command, "BNC", 3) == 0) {
+      actuator.bounce(1);
+    } else if (strncmp(command, "SHK", 6) == 0) {  // shake can have args, so expand scan size
+      actuator.shake(2);
+    } else if (sscanf(command, "SHK>%d", &arg0) == 1) {
+      arg0 = constrain(arg0, 0, 20);
+      actuator.shake(arg0);
+    }
   }
 }
 
 void handleJawCmd (char * command) {
-  // Jaw commands all take the form:  J/CMD
+  // Jaw commands all take the form:  J/CMD[>B]
+  //                                    ^
+  //                          command starts here
+  uint8_t blocking = (strncmp(command + 3, ">B", 2) == 0);
   if (strncmp(command, "OPN", 3) == 0) {
-    jaw.open();
+    jaw.open(blocking);
   } else if (strncmp(command, "CLS", 3) == 0) {
-    jaw.close();
+    jaw.close(blocking);
   }
 }
 
@@ -331,8 +363,6 @@ void setup() {
   FastLED.setBrightness(LED_BRIGHTNESS);
 
   reset();
-  actuator.reset();
-  jaw.close(1);
 
   Serial.begin(115200);
   Serial.println("Ready! (=^-^=)");
@@ -341,9 +371,9 @@ void setup() {
 void loop() {
   if (Serial.available()) {
     if (receiveMessage(receivedChars)) {
-      handleMessage(receivedChars);
       Serial.print("ACK: ");
       Serial.println(receivedChars);
+      handleMessage(receivedChars);
     }
   }
 }
