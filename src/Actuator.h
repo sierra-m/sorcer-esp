@@ -21,6 +21,8 @@ class Actuator {
     Actuator (ServoDS3218 *leftServo, ServoDS3218 *rightServo, ExtendDirection leftServoDir = CLOCKWISE);
     // Handles movement of both servos
     void moveBoth (int leftNewPos, int rightNewPos, uint8_t blocking = 0);
+    // Set speed for both servos
+    void setSpeed (uint8_t newSpeed);
     // Move arms to initial state (middle)
     void reset ();
     // Fully retract arms

@@ -48,12 +48,13 @@ Eye::Eye (CRGB *leds, int start, CRGB defaultColor) {
   this->end = start + EYE_LED_COUNT - 1;
   this->defaultColor = defaultColor;
   this->currentColor = defaultColor;
+  this->pupilInfill = PUPIL_INFILL;
 }
 
 void Eye::reset () {
   currentColor = defaultColor;
   pupilSize = PUPIL_REG;
-  pupilInfill = PUPIL_NO_INFILL;
+  pupilInfill = PUPIL_INFILL;
   open();
 }
 
@@ -142,25 +143,37 @@ void Eye::rainbow () {
 }
 
 void Eye::blinkStep0 (BlinkState blinkState) {
-  CRGB newColor = ((blinkState == BLINK_CLOSING) ? 0 : currentColor);
-  for (int i = 0; i < EYE_BLINK_STEP0_IDXS_SIZE; i++) {
-    leds[Eye::eyeBlinkStep0Idxs[i] + start] = newColor;
+  if (pupilSize == PUPIL_REG) {
+    CRGB newColor = ((blinkState == BLINK_CLOSING) ? 0 : currentColor);
+    for (int i = 0; i < EYE_BLINK_STEP0_IDXS_SIZE; i++) {
+      leds[Eye::eyeBlinkStep0Idxs[i] + start] = newColor;
+    }
+  } else {
+    if (blinkState == BLINK_CLOSING) {
+      close();
+    } else {
+      open();
+    }
   }
 }
 
 void Eye::blinkStep1 (BlinkState blinkState) {
-  CRGB newColor = ((blinkState == BLINK_CLOSING) ? 0 : currentColor);
-  for (int i = 0; i < EYE_BLINK_STEP1_IDXS_SIZE; i++) {
-    leds[Eye::eyeBlinkStep1Idxs[i] + start] = newColor;
-  }
-  if (blinkState == BLINK_CLOSING) {
-    // dot should always display when closed
-    writeRing(RING_DOT, currentColor);
-  } else {
-    // Clear dot for no infill when opening
-    if (pupilInfill == PUPIL_NO_INFILL) {
-      writeRing(RING_DOT, 0);
+  if (pupilSize == PUPIL_REG) {
+    CRGB newColor = ((blinkState == BLINK_CLOSING) ? 0 : currentColor);
+    for (int i = 0; i < EYE_BLINK_STEP1_IDXS_SIZE; i++) {
+      leds[Eye::eyeBlinkStep1Idxs[i] + start] = newColor;
     }
+    if (blinkState == BLINK_CLOSING) {
+      // dot should always display when closed
+      writeRing(RING_DOT, currentColor);
+    } else {
+      // Clear dot for no infill when opening
+      if (pupilInfill == PUPIL_NO_INFILL) {
+        writeRing(RING_DOT, 0);
+      }
+    }
+  } else {
+    close();
   }
 }
 
@@ -168,21 +181,29 @@ void Eye::blinkStep1 (BlinkState blinkState) {
 // ============================
 void Eye::blink () {
   // assumes eye starts open
-  blinkStep0(BLINK_CLOSING);
-  FastLED.show();
-  delay(EYE_BLINK_STEP_DELAY_MS);
+  if (pupilSize == PUPIL_REG) {
+    blinkStep0(BLINK_CLOSING);
+    FastLED.show();
+    delay(EYE_BLINK_STEP_DELAY_MS);
 
-  blinkStep1(BLINK_CLOSING);
-  FastLED.show();
-  delay(EYE_BLINK_STEP_DELAY_MS);
-  delay(EYE_BLINK_STEP_DELAY_MS);
+    blinkStep1(BLINK_CLOSING);
+    FastLED.show();
+    delay(EYE_BLINK_STEP_DELAY_MS);
+    delay(EYE_BLINK_STEP_DELAY_MS);
 
-  blinkStep1(BLINK_OPENING);
-  FastLED.show();
-  delay(EYE_BLINK_STEP_DELAY_MS);
+    blinkStep1(BLINK_OPENING);
+    FastLED.show();
+    delay(EYE_BLINK_STEP_DELAY_MS);
 
-  blinkStep0(BLINK_OPENING);
-  FastLED.show();
+    blinkStep0(BLINK_OPENING);
+    FastLED.show();
+  } else {
+    close();
+    FastLED.show();
+    delay(EYE_BLINK_STEP_DELAY_MS * 3);
+    open();
+    FastLED.show();
+  }
 }
 
 // Color setting

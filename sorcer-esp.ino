@@ -18,16 +18,33 @@
 #define JAW_SERVO_CHANNEL 2
 #define JAW_SERVO_INVERTED 0
 
+// Pin used for reading button state
+#define BUTTON_READ_PIN GPIO_NUM_7
+// Pin used for enabling button LED & switch
+#define BUTTON_EN_PIN GPIO_NUM_5
+// Time offset used for button debouncing
+#define BUTTON_DEBOUNCE_MS 100
+
 #define LED_DATA_PIN GPIO_NUM_3
 #define LED_TYPE WS2812B
 #define LED_COLOR_ORDER GRB
 
+// Jaw LEDs start at the end of the eyes
+#define JAW_LED_COUNT 12
+#define JAW_LED_START EYES_LED_COUNT
+
 // Number of LEDs is defined by the total of both eyes and the mouth (TBA)
-#define LED_NUM EYES_LED_COUNT
-#define LED_BRIGHTNESS  10
+#define LED_NUM (EYES_LED_COUNT + JAW_LED_COUNT)
+#define LED_BRIGHTNESS 10
 
 #define MAX_CMD_SIZE 20
 #define CMD_TIMEOUT_US 500
+
+typedef enum {
+  BUTTON_RELEASED,
+  BUTTON_CHANGING,
+  BUTTON_PRESSED
+} ButtonState;
 
 ServoDS3218 leftArmServo(LEFT_SERVO_PIN, LEFT_SERVO_CHANNEL); // move clockwise to extend arm up
 ServoDS3218 rightArmServo(RIGHT_SERVO_PIN, RIGHT_SERVO_CHANNEL); // move counter-clockwise to extend arm up
@@ -36,8 +53,6 @@ Actuator actuator(&leftArmServo, &rightArmServo);
 
 MicroServoSG90 jawServo(JAW_SERVO_PIN, JAW_SERVO_CHANNEL);
 
-Jaw jaw(&jawServo);
-
 CRGB leds[LED_NUM];
 
 Eye leftEye(leds, 0, CRGB::Green);
@@ -45,13 +60,18 @@ Eye rightEye(leds, EYE_LED_COUNT, CRGB::Green);
 
 Eyes eyes(&leftEye, &rightEye);
 
+Jaw jaw(&jawServo, leds + JAW_LED_START, JAW_LED_COUNT, CRGB::Green);
+
 char receivedChars[MAX_CMD_SIZE];
+
+ButtonState buttonState;
+unsigned long lastButtonTimeMillis;
 
 void reset () {
   eyes.reset();
+  jaw.reset();
   FastLED.show();
   actuator.reset();
-  jaw.close(1);
 }
 
 uint8_t waitSerial () {
@@ -127,19 +147,31 @@ void handleActuatorCmd (char * command) {
     } else if (sscanf(command, "SHK>%d", &arg0) == 1) {
       arg0 = constrain(arg0, 0, 20);
       actuator.shake(arg0);
+    } else if (sscanf(command, "SPD>%d", &arg0) == 1) {
+      uint8_t speed = (uint8_t)constrain(arg0, 0, 100);
+      actuator.setSpeed(speed);
     }
   }
 }
 
 void handleJawCmd (char * command) {
   // Jaw commands all take the form:  J/CMD[>B]
+  //                                  J/CMD>[num]
+  //                                  J/C>#[hex]
   //                                    ^
   //                          command starts here
   uint8_t blocking = (strncmp(command + 3, ">B", 2) == 0);
+  int arg0;
   if (strncmp(command, "OPN", 3) == 0) {
     jaw.open(blocking);
   } else if (strncmp(command, "CLS", 3) == 0) {
     jaw.close(blocking);
+  } else if (sscanf(command, "SPD>%d", &arg0) == 1) {
+    uint8_t speed = (uint8_t)constrain(arg0, 0, 100);
+    jawServo.setSpeed(speed);
+  } else if (sscanf(command, "C>#%6x", &arg0) == 1) {
+    arg0 = constrain(arg0, 0, 0xffffff);
+    jaw.setColor(arg0);
   }
 }
 
@@ -329,6 +361,18 @@ void handleEyeCmd (char * command) {
   }
 }
 
+void handleButtonCmd (char * command) {
+  // Buttom commands take the form: B/ENA
+  //                                B/DIS
+  //                                  ^
+  //                         command starts here
+  if (strncmp(command, "ENA", 3) == 0) {
+    digitalWrite(BUTTON_EN_PIN, HIGH);
+  } else if (strncmp(command, "DIS", 3) == 0) {
+    digitalWrite(BUTTON_EN_PIN, LOW);
+  }
+}
+
 void handleMessage (char * buffer) {
   if (buffer[0] == 'R') {
     reset();
@@ -349,12 +393,42 @@ void handleMessage (char * buffer) {
     case 'E':
       handleEyeCmd(subcmd);
       break;
+    case 'B':
+      handleButtonCmd(subcmd);
+      break;
   }
   // Update LEDs if not done already
   FastLED.show();
 }
 
+// Handles reading, debouncing, and notifications of button
+void handleButton () {
+  uint8_t reading = digitalRead(BUTTON_READ_PIN);
+  // Button is inverted, so convert to correct new state
+  ButtonState newState = (reading ? BUTTON_RELEASED : BUTTON_PRESSED);
+
+  if (buttonState == BUTTON_CHANGING) {
+    if ((millis() - lastButtonTimeMillis) > BUTTON_DEBOUNCE_MS) {
+      buttonState = newState;
+      if (buttonState == BUTTON_PRESSED) {
+        Serial.print("B/ON\n");
+      } else {
+        Serial.print("B/OFF\n");
+      }
+    }
+  } else {
+    if (newState != buttonState) {
+      buttonState = BUTTON_CHANGING;
+      lastButtonTimeMillis = millis();
+    }
+  }
+}
+
 void setup() {
+  pinMode(BUTTON_READ_PIN, INPUT);
+  pinMode(BUTTON_EN_PIN, OUTPUT);
+  digitalWrite(BUTTON_EN_PIN, LOW);
+
   FastLED.addLeds<LED_TYPE,LED_DATA_PIN,LED_COLOR_ORDER>(leds, LED_NUM)
     .setCorrection(TypicalLEDStrip)
     .setDither(LED_BRIGHTNESS < 255);
@@ -365,15 +439,20 @@ void setup() {
   reset();
 
   Serial.begin(115200);
-  Serial.println("Ready! (=^-^=)");
+  Serial.print("Ready! (=^-^=)\n");
 }
 
 void loop() {
   if (Serial.available()) {
     if (receiveMessage(receivedChars)) {
       Serial.print("ACK: ");
-      Serial.println(receivedChars);
+      Serial.print(receivedChars);
+      Serial.print("\n");
       handleMessage(receivedChars);
     }
   }
+  leftArmServo.update();
+  rightArmServo.update();
+  jawServo.update();
+  handleButton();
 }

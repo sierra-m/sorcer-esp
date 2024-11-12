@@ -6,6 +6,11 @@
 
 // Bit resolution for PWM duty cycle
 #define SERVO_MAX_BIT_NUM 14
+// Mulitplier used to calc the max delay in lower-speed move operatoin, where
+// maxDelay == (minDelay * MAX_DELAY_MULT).
+// The max delay should be < 16383, which is the max supported value for delayMicroseconds().
+// Min delay is calculated from fullMoveDelay
+#define SERVO_MAX_DELAY_MULT 5
 
 class Servo {
   public:
@@ -22,6 +27,10 @@ class Servo {
     // Movement delay of full rotation
     int fullMoveDelay;
 
+    // Min and max delays used to implement max and min speeds, respectively
+    int minIncrDelayMicros;
+    int maxIncrDelayMicros;
+
     Servo (uint16_t minPulseWidth, uint16_t maxPulseWidth, int fullMoveDelay, uint8_t pin, uint8_t channel, uint8_t inverted);
     // Set the pulse width directly
     void setPulseWidth (int width);
@@ -37,9 +46,28 @@ class Servo {
     int calcDelay (int newPos);
     // Get current pos
     int getPos ();
+    // Set the current speed
+    void setSpeed (uint8_t newSpeed);
+    // Get the current speed
+    uint8_t getSpeed ();
+    // Indicates that position needs updating
+    uint8_t requiresUpdate ();
+    // Update servo position (for async lower-speed moves)
+    void update ();
   protected:
     // Current position on range [0, 1000]
     int currentPos;
+
+    // Tracks speed to drive movement changes by on range [0,100]
+    uint8_t speed;
+    // Tracks single increment delay (aka 1/speed)
+    int incrementDelay;
+
+    // Tracks next desired pulse width for async moves
+    int nextPos;
+
+    // Tracks the last time recorded for async events
+    unsigned long lastTimeMicros;
 
     // Calculate approximate movement delay
     void waitMovement (int newPos);

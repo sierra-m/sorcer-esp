@@ -13,6 +13,7 @@ void Eyes::reset () {
 }
 
 void Eyes::blink () {
+  
   leftEye->blinkStep0(BLINK_CLOSING);
   rightEye->blinkStep0(BLINK_CLOSING);
   FastLED.show();

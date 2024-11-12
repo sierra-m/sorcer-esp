@@ -23,11 +23,26 @@ void Actuator::moveBoth (int leftNewPos, int rightNewPos, uint8_t blocking) {
   // Double blocking check due to need to calc delay before setting pos, but
   // only if blocking
   if (blocking) {
-    delay(maxDelay);
+    // Both servos should always be kept at the same speed. If full speed,
+    // block via delay. Otherwise, update async
+    if (leftServo->getSpeed() == 100) {
+      delay(maxDelay);
+    } else {
+      while (leftServo->requiresUpdate() || rightServo->requiresUpdate()) {
+        leftServo->update();
+        rightServo->update();
+      }
+    }
   }
 }
 
+void Actuator::setSpeed (uint8_t newSpeed) {
+  leftServo->setSpeed(newSpeed);
+  rightServo->setSpeed(newSpeed);
+}
+
 void Actuator::reset () {
+  setSpeed(100);
   // Call is always blocking to ensure reset before other actions
   extendHalf(1);
 }
@@ -50,11 +65,13 @@ void Actuator::extendHalf (uint8_t blocking) {
 
 void Actuator::tiltRight (int amount, uint8_t blocking) {
   int halfAmount = amount / 2;
+  halfAmount = constrain(halfAmount, 0, 950);
   moveBoth(500 + halfAmount, 500 - halfAmount, blocking);
 }
 
 void Actuator::tiltLeft (int amount, uint8_t blocking) {
   int halfAmount = amount / 2;
+  halfAmount = constrain(halfAmount, 0, 950);
   moveBoth(500 - halfAmount, 500 + halfAmount, blocking);
 }
 
@@ -69,13 +86,13 @@ void Actuator::bounce (uint8_t blocking) {
 
 void Actuator::shake (int count) {
   // Start from default position
-  reset();
+  extendHalf(0);
   for (int i = 0; i < count; i++) {
     moveBoth(600, 400, 1);
     moveBoth(400, 600, 1);
   }
   // Move back to default position
-  reset();
+  extendHalf(0);
 }
 
 int Actuator::calcMaxDelay (int leftNewPos, int rightNewPos) {
