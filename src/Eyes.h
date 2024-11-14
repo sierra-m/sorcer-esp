@@ -22,26 +22,34 @@ class Eyes {
     Eyes (Eye *leftEye, Eye *rightEye);
     // Reset both eyes
     void reset ();
+    // Clear any animation on both eyes
+    void clearAnimation ();
     // Blink both eyes
-    void blink ();
+    void blink (uint16_t stepDelayMillis = EYE_BLINK_STEP_DELAY_MS);
     // Open both eyes
-    void open ();
+    void open (uint8_t _clearAnimation = 0);
     // Close both eyes
-    void close ();
+    void close (uint8_t _clearAnimation = 0);
     // Dilate both eyes
-    void dilate ();
+    void dilate (uint8_t _clearAnimation = 0);
     // Contract both eyes
-    void contract ();
+    void contract (uint8_t _clearAnimation = 0);
     // Squint both eyes
-    void squint ();
+    void squint (uint8_t _clearAnimation = 0);
     // Set infill in both eyes
     void setInfill (uint8_t hasInfill);
-    // Then die
-    void dead ();
-    // Set both eyes to rainbow
-    void rainbow ();
+    // Then die.
+    void dead (uint8_t _clearAnimation = 0);
     // Dilate one eye to display confusion
     void confused ();
+    // Both look left
+    void lookLeft (uint8_t _clearAnimation = 0);
+    // Both look right
+    void lookRight (uint8_t _clearAnimation = 0);
+    // Both look up
+    void lookUp (uint8_t _clearAnimation = 0);
+    // Both look down
+    void lookDown (uint8_t _clearAnimation = 0);
     // Set color to red
     void angry ();
     // Set color to green
@@ -50,10 +58,14 @@ class Eyes {
     void caution ();
     // Set both eyes to one color
     void setColor (CRGB newColor);
+    // Set both eyes to rainbow animation
+    void rainbow (uint16_t stepDelayMillis = EYE_RAINBOW_STEP_DELAY_MS);
     // Send dot spiralling across each eye
-    void spiralDot ();
+    void spiralDot (uint16_t stepDelayMillis = EYE_SPIRAL_STEP_DELAY_MS, uint8_t up = 1);
     // Spiral line across each eye
-    void spiralLine ();
+    void spiralLine (uint16_t stepDelayMillis = EYE_SPIRAL_STEP_DELAY_MS, uint8_t up = 1);
+    // Update both eye animations
+    void update ();
 };
 
 #endif

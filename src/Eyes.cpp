@@ -12,51 +12,39 @@ void Eyes::reset () {
   this->rightEye->reset();
 }
 
-void Eyes::blink () {
-  
-  leftEye->blinkStep0(BLINK_CLOSING);
-  rightEye->blinkStep0(BLINK_CLOSING);
-  FastLED.show();
-  delay(EYE_BLINK_STEP_DELAY_MS);
-
-  leftEye->blinkStep1(BLINK_CLOSING);
-  rightEye->blinkStep1(BLINK_CLOSING);
-  FastLED.show();
-  delay(EYE_BLINK_STEP_DELAY_MS);
-  delay(EYE_BLINK_STEP_DELAY_MS);
-
-  leftEye->blinkStep1(BLINK_OPENING);
-  rightEye->blinkStep1(BLINK_OPENING);
-  FastLED.show();
-  delay(EYE_BLINK_STEP_DELAY_MS);
-
-  leftEye->blinkStep0(BLINK_OPENING);
-  rightEye->blinkStep0(BLINK_OPENING);
+void Eyes::clearAnimation () {
+  leftEye->clearAnimation();
+  rightEye->clearAnimation();
 }
 
-void Eyes::open () {
-  leftEye->open();
-  rightEye->open();
+void Eyes::blink (uint16_t stepDelayMillis) {
+  leftEye->blink(stepDelayMillis);
+  rightEye->blink(stepDelayMillis);
 }
 
-void Eyes::close () {
-  leftEye->close();
-  rightEye->close();
+void Eyes::open (uint8_t _clearAnimation) {
+  leftEye->open(_clearAnimation);
+  rightEye->open(_clearAnimation);
 }
 
-void Eyes::dilate () {
-  leftEye->dilate();
-  rightEye->dilate();
+void Eyes::close (uint8_t _clearAnimation) {
+  leftEye->close(_clearAnimation);
+  rightEye->close(_clearAnimation);
 }
 
-void Eyes::contract () {
-  leftEye->contract();
-  rightEye->contract();
+void Eyes::dilate (uint8_t _clearAnimation) {
+  leftEye->dilate(_clearAnimation);
+  rightEye->dilate(_clearAnimation);
 }
 
-void Eyes::squint () {
-  leftEye->squint();
-  rightEye->squint();
+void Eyes::contract (uint8_t _clearAnimation) {
+  leftEye->contract(_clearAnimation);
+  rightEye->contract(_clearAnimation);
+}
+
+void Eyes::squint (uint8_t _clearAnimation) {
+  leftEye->squint(_clearAnimation);
+  rightEye->squint(_clearAnimation);
 }
 
 void Eyes::setInfill (uint8_t hasInfill) {
@@ -64,19 +52,34 @@ void Eyes::setInfill (uint8_t hasInfill) {
   rightEye->setInfill(hasInfill);
 }
 
-void Eyes::dead () {
-  leftEye->dead();
-  rightEye->dead();
-}
-
-void Eyes::rainbow () {
-  leftEye->rainbow();
-  rightEye->rainbow();
+void Eyes::dead (uint8_t _clearAnimation) {
+  leftEye->dead(_clearAnimation);
+  rightEye->dead(_clearAnimation);
 }
 
 void Eyes::confused () {
-  leftEye->contract();
-  rightEye->dilate();
+  leftEye->contract(1);
+  rightEye->dilate(1);
+}
+
+void Eyes::lookLeft (uint8_t _clearAnimation) {
+  leftEye->lookLeft(_clearAnimation);
+  rightEye->lookLeft(_clearAnimation);
+}
+
+void Eyes::lookRight (uint8_t _clearAnimation) {
+  leftEye->lookRight(_clearAnimation);
+  rightEye->lookRight(_clearAnimation);
+}
+
+void Eyes::lookUp (uint8_t _clearAnimation) {
+  leftEye->lookUp(_clearAnimation);
+  rightEye->lookUp(_clearAnimation);
+}
+
+void Eyes::lookDown (uint8_t _clearAnimation) {
+  leftEye->lookDown(_clearAnimation);
+  rightEye->lookDown(_clearAnimation);
 }
 
 void Eyes::angry () {
@@ -99,26 +102,24 @@ void Eyes::setColor (CRGB newColor) {
   rightEye->setColor(newColor);
 }
 
-void Eyes::spiralDot () {
-  fill_solid(ledSpan, EYES_LED_COUNT, 0);
-  for (int i = 0; i < EYES_LED_COUNT; i++) {
-    ledSpan[i] = leftEye->currentColor;
-    if (i > 0) {
-      ledSpan[i - 1] = 0;
-    }
-    FastLED.show();
-    delay(EYES_SPIRAL_STEP_DELAY_MS);
-  }
-  ledSpan[EYES_LED_COUNT - 1] = 0;
+void Eyes::rainbow (uint16_t stepDelayMillis) {
+  leftEye->rainbow(stepDelayMillis);
+  rightEye->rainbow(stepDelayMillis);
 }
 
-void Eyes::spiralLine () {
-  fill_solid(ledSpan, EYES_LED_COUNT, 0);
-  for (int i = 0; i < EYES_LED_COUNT; i++) {
-    ledSpan[i] = leftEye->currentColor;
-    FastLED.show();
-    delay(EYES_SPIRAL_STEP_DELAY_MS);
-  }
+void Eyes::spiralDot (uint16_t stepDelayMillis, uint8_t up) {
+  leftEye->spiral(stepDelayMillis, up, 1);
+  rightEye->spiral(stepDelayMillis, up, 1);
+}
+
+void Eyes::spiralLine (uint16_t stepDelayMillis, uint8_t up) {
+  leftEye->spiral(stepDelayMillis, up, 0);
+  rightEye->spiral(stepDelayMillis, up, 0);
+}
+
+void Eyes::update () {
+  leftEye->update();
+  rightEye->update();
 }
 
 

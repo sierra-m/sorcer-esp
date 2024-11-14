@@ -46,6 +46,15 @@ typedef enum {
   BUTTON_PRESSED
 } ButtonState;
 
+typedef struct {
+  uint8_t valid;
+  char cmd;
+  char subcmds[2][5];
+  uint8_t subcmdsSize;
+  char args[3][10];
+  uint8_t argsSize;
+} CommandDesc;
+
 ServoDS3218 leftArmServo(LEFT_SERVO_PIN, LEFT_SERVO_CHANNEL); // move clockwise to extend arm up
 ServoDS3218 rightArmServo(RIGHT_SERVO_PIN, RIGHT_SERVO_CHANNEL); // move counter-clockwise to extend arm up
 
@@ -55,14 +64,15 @@ MicroServoSG90 jawServo(JAW_SERVO_PIN, JAW_SERVO_CHANNEL);
 
 CRGB leds[LED_NUM];
 
-Eye leftEye(leds, 0, CRGB::Green);
-Eye rightEye(leds, EYE_LED_COUNT, CRGB::Green);
+Eye rightEye(leds, 0, CRGB::Green);
+Eye leftEye(leds, EYE_LED_COUNT, CRGB::Green);
 
 Eyes eyes(&leftEye, &rightEye);
 
 Jaw jaw(&jawServo, leds + JAW_LED_START, JAW_LED_COUNT, CRGB::Green);
 
 char receivedChars[MAX_CMD_SIZE];
+CommandDesc commandDesc;
 
 ButtonState buttonState;
 unsigned long lastButtonTimeMillis;
@@ -97,6 +107,83 @@ uint8_t receiveMessage (char * buffer) {
   }
   buffer[index] = '\0';
   return status;
+}
+
+void parseCommand (char * command) {
+  // Invalidate previous data
+  commandDesc.valid = 0;
+  commandDesc.subcmdsSize = 0;
+  commandDesc.argsSize = 0;
+  if (command[0] == '\0') {
+    return;
+  }
+  commandDesc.cmd = command[0];
+  commandDesc.valid = 1;
+  if (command[1] != '/') {
+    return;
+  }
+  int index;
+
+  int subcmdIdx = 0;
+  int subcmdCharIdx = 0;
+  // Move index past first '/'
+  for (index = 2; index < MAX_CMD_SIZE && subcmdIdx < 2; index++) {
+    switch (command[index]) {
+      case '\0':
+        break;
+      case '/':
+        // Null terminate last subcmd stored
+        commandDesc.subcmds[subcmdIdx][subcmdCharIdx] = '\0';
+        subcmdIdx++;
+        subcmdCharIdx = 0;
+        continue;
+      case '>':
+        // Arguments starting
+        break;
+      default:
+        commandDesc.subcmds[subcmdIdx][subcmdCharIdx] = command[index];
+        subcmdCharIdx++;
+        // No subcmds are > 3 chars - invalid
+        if (subcmdCharIdx >= 4) {
+          commandDesc.valid = 0;
+          commandDesc.subcmds[subcmdIdx][subcmdCharIdx] = '\0';
+          return;
+        }
+        continue;
+    }
+    break;
+  }
+  commandDesc.subcmds[subcmdIdx][subcmdCharIdx] = '\0';
+  commandDesc.subcmdsSize = subcmdIdx + 1;
+  if (index >= MAX_CMD_SIZE || command[index] != '>') {
+    return;
+  }
+  // Increment index to move past '>'
+  index++;
+  int argIdx = 0;
+  int argCharIdx = 0;
+  for (; index < MAX_CMD_SIZE && argIdx < 3; index++) {
+    switch (command[index]) {
+      case '\0':
+        break;
+      case ',':
+        commandDesc.args[argIdx][argCharIdx] = '\0';
+        argIdx++;
+        argCharIdx = 0;
+        continue;
+      default:
+        commandDesc.args[argIdx][argCharIdx] = command[index];
+        argCharIdx++;
+        if (argCharIdx >= 9) {
+          commandDesc.valid = 0;
+          commandDesc.args[argIdx][argCharIdx] = '\0';
+        }
+        continue;
+    }
+    break;
+  }
+  commandDesc.args[argIdx][argCharIdx] = '\0';
+  commandDesc.argsSize = argIdx + 1;
 }
 
 void handleActuatorCmd (char * command) {
@@ -237,77 +324,129 @@ void handleEyeDrawingCmd (char * command) {
   // Drawing:        E/D/CMD[>[arg]]
   //                    ^
   //           command starts here
-  char subcmd[3];
-  char arg0;
-  int numScanned = sscanf(command, "/%3c>%c", subcmd, &arg0);
-
-  if (numScanned > 0) {
-    char side = ((numScanned == 2) ? arg0 : 'B');
-    if (strncmp(subcmd, "OPN", 3) == 0) {
-      switch (side) {
-        case 'L':
-          leftEye.open();
-          break;
-        case 'R':
-          rightEye.open();
-          break;
-        default:
-          eyes.open();
+  if (strncmp(command, "/LOK", 3) == 0) {
+    char direction, side;
+    int numScanned = sscanf(command + 4, ">%c,%c", &direction, &side);
+    // Must have first arg
+    if (numScanned > 0) {
+      side = ((numScanned == 2) ? side : 'B');
+      if (direction == 'U') {
+        switch (side) {
+          case 'L':
+            leftEye.lookUp(1);
+            break;
+          case 'R':
+            rightEye.lookUp(1);
+            break;
+          default:
+            eyes.lookUp(1);
+        }
+      } else if (direction == 'D') {
+        switch (side) {
+          case 'L':
+            leftEye.lookDown(1);
+            break;
+          case 'R':
+            rightEye.lookDown(1);
+            break;
+          default:
+            eyes.lookDown(1);
+        }
+      } else if (direction == 'L') {
+        switch (side) {
+          case 'L':
+            leftEye.lookLeft(1);
+            break;
+          case 'R':
+            rightEye.lookLeft(1);
+            break;
+          default:
+            eyes.lookLeft(1);
+        }
+      } else if (direction == 'R') {
+        switch (side) {
+          case 'L':
+            leftEye.lookRight(1);
+            break;
+          case 'R':
+            rightEye.lookRight(1);
+            break;
+          default:
+            eyes.lookRight(1);
+        }
       }
-    } else if (strncmp(subcmd, "CLS", 3) == 0) {
-      switch (side) {
-        case 'L':
-          leftEye.close();
-          break;
-        case 'R':
-          rightEye.close();
-          break;
-        default:
-          eyes.close();
+    }
+  } else {
+    char subcmd[3];
+    char arg0;
+    int numScanned = sscanf(command, "/%3c>%c", subcmd, &arg0);
+    if (numScanned > 0) {
+      char side = ((numScanned == 2) ? arg0 : 'B');
+      if (strncmp(subcmd, "OPN", 3) == 0) {
+        switch (side) {
+          case 'L':
+            leftEye.open(1);
+            break;
+          case 'R':
+            rightEye.open(1);
+            break;
+          default:
+            eyes.open(1);
+        }
+      } else if (strncmp(subcmd, "CLS", 3) == 0) {
+        switch (side) {
+          case 'L':
+            leftEye.close(1);
+            break;
+          case 'R':
+            rightEye.close(1);
+            break;
+          default:
+            eyes.close(1);
+        }
+      } else if (strncmp(subcmd, "DIL", 3) == 0) {
+        switch (side) {
+          case 'L':
+            leftEye.dilate(1);
+            break;
+          case 'R':
+            rightEye.dilate(1);
+            break;
+          default:
+            eyes.dilate(1);
+        }
+      } else if (strncmp(subcmd, "CTR", 3) == 0) {
+        switch (side) {
+          case 'L':
+            leftEye.contract(1);
+            break;
+          case 'R':
+            rightEye.contract(1);
+            break;
+          default:
+            eyes.contract(1);
+        }
+      } else if (strncmp(subcmd, "SQT", 3) == 0) {
+        switch (side) {
+          case 'L':
+            leftEye.squint(1);
+            break;
+          case 'R':
+            rightEye.squint(1);
+            break;
+          default:
+            eyes.squint(1);
+        }
+      } else if ((strncmp(subcmd, "INF", 3) == 0) && (numScanned == 2)) {
+        eyes.setInfill(arg0 == 'Y');
+      } else if (strncmp(subcmd, "DIE", 3) == 0) {
+        eyes.dead(1);
+      } else if (strncmp(subcmd, "CNF", 3) == 0) {
+        eyes.confused();
       }
-    } else if (strncmp(subcmd, "DIL", 3) == 0) {
-      switch (side) {
-        case 'L':
-          leftEye.dilate();
-          break;
-        case 'R':
-          rightEye.dilate();
-          break;
-        default:
-          eyes.dilate();
-      }
-    } else if (strncmp(subcmd, "CTR", 3) == 0) {
-      switch (side) {
-        case 'L':
-          leftEye.contract();
-          break;
-        case 'R':
-          rightEye.contract();
-          break;
-        default:
-          eyes.contract();
-      }
-    } else if (strncmp(subcmd, "SQT", 3) == 0) {
-      switch (side) {
-        case 'L':
-          leftEye.squint();
-          break;
-        case 'R':
-          rightEye.squint();
-          break;
-        default:
-          eyes.squint();
-      }
-    } else if ((strncmp(subcmd, "INF", 3) == 0) && (numScanned == 2)) {
-      eyes.setInfill(arg0 == 'Y');
-    } else if (strncmp(subcmd, "DIE", 3) == 0) {
-      eyes.dead();
-    } else if (strncmp(subcmd, "RNB", 3) == 0) {
-      eyes.rainbow();
-    } else if (strncmp(subcmd, "CNF", 3) == 0) {
-      eyes.confused();
     }
   }
+  
 }
 
 void handleEyeCmd (char * command) {
@@ -343,18 +482,73 @@ void handleEyeCmd (char * command) {
       if (command[1] != '/') {
         return;
       }
-      char side;
+      char side, direction;
       if (strncmp(command + 2, "BLK", 3) == 0) {
-        eyes.blink();
-      } else if (strncmp(command + 2, "SPD", 3) == 0) {
-        eyes.spiralDot();
-      } else if (strncmp(command + 2, "SPL", 3) == 0) {
-        eyes.spiralLine();
-      } else if (sscanf(command + 2, "WNK>%c", &side) == 1) {
-        if (side == 'L') {
-          leftEye.blink();
-        } else if (side == 'R') {
-          rightEye.blink();
+        int numScanned = sscanf(command + 5, ">%d", &arg0);
+        if (numScanned > 0) {
+          arg0 = constrain(arg0, 1, 1000);
+          eyes.blink(arg0);
+        } else {
+          eyes.blink();
+        }
+      } else if (strncmp(command + 2, "SP", 2) == 0) {
+        char spiralType = command[4];
+        // Validate spiral type
+        if (spiralType != 'D' && spiralType != 'L') {
+          return;
+        }
+        // Dot means clear behind
+        uint8_t clearBehind = (spiralType == 'D');
+        int numScanned = sscanf(command + 5, ">%d,%c,%c", &arg0, &direction, &side);
+        uint8_t up = 1;
+        if (numScanned > 0) {
+          arg0 = constrain(arg0, 1, 1000);
+          if (numScanned > 1) {
+            up = (direction == 'U');
+          }
+          if (side == 'L') {
+            leftEye.spiral(arg0, up, clearBehind);
+          } else if (side == 'R') {
+            rightEye.spiral(arg0, up, clearBehind);
+          } else {
+            if (clearBehind) {
+              eyes.spiralDot(arg0, up);
+            } else {
+              eyes.spiralLine(arg0, up);
+            }
+          }
+        } else {
+          if (clearBehind) {
+            eyes.spiralDot();
+          } else {
+            eyes.spiralLine();
+          }
+        }
+      } else if (strncmp(command + 2, "WNK", 3) == 0) {
+        arg0 = EYE_BLINK_STEP_DELAY_MS;
+        int numScanned = sscanf(command + 5, ">%c,%d", &side, &arg0);
+        // First arg required
+        if (numScanned > 0) {
+          arg0 = constrain(arg0, 1, 1000);
+          if (side == 'L') {
+            leftEye.blink(arg0);
+          } else if (side == 'R') {
+            rightEye.blink(arg0);
+          }
+        }
+      } else if (strncmp(command + 2, "RNB", 3) == 0) {
+        int numScanned = sscanf(command + 5, ">%d,%c", &arg0, &side);
+        if (numScanned > 0) {
+          arg0 = constrain(arg0, 1, 1000);
+          if (side == 'L') {
+            leftEye.rainbow(arg0);
+          } else if (side == 'R') {
+            rightEye.rainbow(arg0);
+          } else {
+            eyes.rainbow(arg0);
+          }
+        } else {
+          eyes.rainbow();
         }
       }
       break;
@@ -455,4 +649,5 @@ void loop() {
   rightArmServo.update();
   jawServo.update();
   handleButton();
+  eyes.update();
 }
