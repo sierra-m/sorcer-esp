@@ -14,7 +14,7 @@ void Jaw::open (uint8_t blocking) {
 }
 
 void Jaw::close (uint8_t blocking) {
-  jawServo->setPos(600, blocking);
+  jawServo->setPos(0, blocking);
   fill_solid(leds, ledCount, 0);
 }
 
